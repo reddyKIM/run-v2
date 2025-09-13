@@ -1,0 +1,104 @@
+name: ARB Aggregator
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'       # 매 5분 (UTC 기준)
+  workflow_dispatch:             # 수동 실행 버튼
+
+concurrency:
+  group: arb-agg-${{ github.ref }} # 중복 실행 방지
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write            # data/ 자동 커밋용
+
+    env:
+      SYMBOL: ARBUSDT
+      OUTDIR: data
+      COMMIT_RESULTS: "true"     # false면 커밋 안 하고 Artifacts만 업로드
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+
+      - name: Ensure data directory
+        run: mkdir -p "${{ env.OUTDIR }}"
+
+      - name: Run aggregator
+        run: |
+          python arb_aggregator_v3.py \
+            --mode real \
+            --out "${{ env.OUTDIR }}" \
+            --symbol "${{ env.SYMBOL }}"
+
+      # ✅ 안전망: 실패 잡이 있어도 10개 파일을 반드시 채운다(플레이스홀더 1행)
+      - name: Backfill missing outputs (ensure 10 files)
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd, json, datetime
+          out = Path("${{ env.OUTDIR }}"); out.mkdir(exist_ok=True)
+
+          REQUIRED = {
+            "01_arb_15m_20d.csv": ["ts_utc","open","high","low","close","volume","quote_asset_volume","trades","slot_avg_volume_20d","vol_ratio"],
+            "02_arb_1d_180d.csv": ["date_utc","o","h","l","c","volume","fib_382","fib_618"],
+            "03_arb_1m_today.csv": ["ts_utc","o","h","l","c","volume","vwap","above_vwap","retest_flag"],
+            "04_arb_funding_8h_30d.csv": ["funding_time_utc","funding_realized_pct","funding_est_pct","next_funding_ts","next_funding_ms","symbol"],
+            "05_arb_oi_1h_30d.csv": ["ts_utc","binance_oi_contracts","binance_oi_usd","bybit_oi_contracts","total_oi_usd","oi_1h_pct","oi_24h_pct"],
+            "06_arb_orderbook_depth_1min_8h.csv": ["ts_utc","mid","spread_bps","depth_bid_0p5pct","depth_ask_0p5pct","depth_bid_1pct","depth_ask_1pct","depth_bid_0p5pct_usd","depth_ask_0p5pct_usd","depth_bid_1pct_usd","depth_ask_1pct_usd"],
+            "07_arb_liquidations_1m_7d.csv": ["ts_utc","liq_long_usd","liq_short_usd","count_long","count_short","raw_sell_usd","raw_buy_usd","mapping_assumption"],
+            "08_arb_basis_mark_index_1m_24h.csv": ["ts_utc","mark_price","index_price","basis_pct"],
+            "09_arb_trades_imbalance_1m_24h.csv": ["ts_utc","buy_qty","sell_qty","buy_quote","sell_quote","delta_quote"],
+          }
+          ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+          for fn, cols in REQUIRED.items():
+              p = out / fn
+              if not p.exists():
+                  pd.DataFrame([{c:(ts if c in ("ts_utc","date_utc") else None) for c in cols}]).to_csv(p, index=False)
+
+          cfg = out / "10_agg_config_costs.json"
+          if not cfg.exists():
+              json.dump({
+                "symbol": "${{ env.SYMBOL }}",
+                "taker_fee_bps": 4.0, "maker_fee_bps": 2.0,
+                "slippage_bps_est": 1.5, "vol_ratio_strong": 1.5,
+                "oi_spike_pct": 10.0, "funding_hot_abs": 0.10,
+                "schedules": {"entry_fast":"1m","entry_stable":"5m","funding_fast":"1m"},
+                "drift_threshold_ms": 1500
+              }, open(cfg,"w"))
+          print("[OK] ensured 10 outputs under", out)
+          PY
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: arb-data-${{ env.SYMBOL }}-${{ github.run_id }}
+          path: |
+            ${{ env.OUTDIR }}/*.csv
+            ${{ env.OUTDIR }}/*.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit results (optional)
+        if: env.COMMIT_RESULTS == 'true'
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ${{ env.OUTDIR }}/*.csv ${{ env.OUTDIR }}/*.json || true
+          git commit -m "data: ${{ env.SYMBOL }} @ ${{ github.run_number }}" || echo "No changes to commit"
+          git push || echo "Nothing to push"
