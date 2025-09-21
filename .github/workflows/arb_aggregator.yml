@@ -48,7 +48,7 @@ jobs:
             --symbol "${{ env.SYMBOL }}" \
           2>&1 | tee "${{ env.OUTDIR }}/_logs/agg_${{ github.run_id }}.log"
 
-      # ✅ 안전망: 실패해도 10개 파일을 채워둠(플레이스홀더 1행)
+      # ✅ 실패해도 10개 파일은 최소 1행으로 채움
       - name: Backfill missing outputs (ensure 10 files)
         if: always()
         run: |
@@ -72,6 +72,7 @@ jobs:
           for fn, cols in REQUIRED.items():
               p = out / fn
               if not p.exists():
+                  import pandas as pd
                   pd.DataFrame([{c:(ts if c in ("ts_utc","date_utc") else None) for c in cols}]).to_csv(p, index=False)
 
           cfg = out / "10_agg_config_costs.json"
@@ -104,6 +105,41 @@ jobs:
                   print(f"{x.name}: read-fail {e}")
           PY
 
+      # ⭐︎ 핵심: 매 실행마다 모든 파일 내용에 스탬프 주입 → 항상 변경으로 커밋됨
+      - name: Force-stamp all outputs (touch content every run)
+        if: always()
+        run: |
+          python - <<'PY'
+          import os, json, datetime
+          from pathlib import Path
+          import pandas as pd
+
+          out = Path(os.environ.get("OUTDIR","data"))
+          ts  = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+          run = os.environ.get("GITHUB_RUN_ID","0")
+
+          for p in sorted(out.glob("*.csv")):
+              try:
+                  df = pd.read_csv(p)
+                  df["_generated_at_utc"] = ts
+                  df["_run_id"] = run
+                  df.to_csv(p, index=False)
+                  print(f"[STAMP] {p.name} @ {ts}")
+              except Exception as e:
+                  print(f"[WARN] stamp failed for {p.name}: {e}")
+
+          j = out / "10_agg_config_costs.json"
+          if j.exists():
+              try:
+                  obj = json.load(open(j))
+              except Exception:
+                  obj = {}
+              obj["last_refresh_utc"] = ts
+              obj["last_run_id"] = run
+              json.dump(obj, open(j,"w"), ensure_ascii=False)
+              print(f"[STAMP] {j.name} @ {ts}")
+          PY
+
       - name: Upload data artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -130,12 +166,7 @@ jobs:
           set -e
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          echo "== git status BEFORE ==" && git status -s || true
-
           git add -A "${{ env.OUTDIR }}/"
-          echo "== STAGED FILES ==" && git diff --name-only --cached || true
-
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
