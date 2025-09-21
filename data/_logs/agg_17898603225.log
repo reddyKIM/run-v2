@@ -1,0 +1,32 @@
+[TIME] check failed: server_time: failed after 2 retries: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/time
+
+[RUN] pass 1/1 (mode=real)
+[JOB] 01 start
+[JOB] 01 finished in 4.1s
+01 error: 01_arb_15m_20d: failed after 3 retries: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=ARBUSDT&interval=15m&limit=1500&startTime=1756758699685&endTime=1758486699685
+[JOB] 02 start
+[JOB] 02 finished in 4.1s
+02 error: 02_arb_1d_180d: failed after 3 retries: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=ARBUSDT&interval=1d&limit=1500&startTime=1742070703811&endTime=1758486703811
+[JOB] 03 start
+[JOB] 03 finished in 4.1s
+03 error: 03_arb_1m_today: failed after 3 retries: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=ARBUSDT&interval=1m&limit=1500&startTime=1758412800000&endTime=1758486707935
+[JOB] 04 start
+[JOB] 04 finished in 4.1s
+04 error: 04_arb_funding_8h_30d-funding: failed after 3 retries: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/fundingRate?symbol=ARBUSDT&startTime=1755894712060&endTime=1758486712060&limit=1000
+[JOB] 05 start
+[JOB] 05 finished in 4.1s
+05 error: 05_arb_oi_1h_30d-binance: failed after 3 retries: 451 Client Error:  for url: https://fapi.binance.com/futures/data/openInterestHist?symbol=ARBUSDT&period=1h&limit=720&startTime=1755894716185&endTime=1758486716185
+[JOB] 06 start
+[JOB] 06 finished in 8.9s
+[JOB] 07 start
+[JOB] 07 finished in 31.2s
+[JOB] 08 start
+[JOB] 08 finished in 4.1s
+08 error: 08_arb_basis_mark_index_1m_24h-mark: failed after 3 retries: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/markPriceKlines?symbol=ARBUSDT&interval=1m&limit=1500&startTime=1758400360360&endTime=1758486760360
+[JOB] 09 start
+[JOB] 09 finished in 4.1s
+09 error: 09_arb_trades_imbalance_1m_24h: failed after 3 retries: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=ARBUSDT&interval=1m&limit=1500&startTime=1758400364485&endTime=1758486764485
+[JOB] 10 start
+[JOB] 10 finished in 0.0s
+
+[DONE] all tasks complete.
