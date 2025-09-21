@@ -1,0 +1,25 @@
+[TIME] RTT=494ms, drift=172ms OK
+
+[RUN] pass 1/1 (mode=real)
+[JOB] 01 start
+[JOB] 01 finished in 0.4s
+[JOB] 02 start
+[JOB] 02 finished in 0.2s
+[JOB] 03 start
+[JOB] 03 finished in 0.2s
+[JOB] 04 start
+[JOB] 04 finished in 0.3s
+[JOB] 05 start
+[JOB] 05 finished in 0.6s
+[JOB] 06 start
+[JOB] 06 finished in 2.5s
+[JOB] 07 start
+[JOB] 07 finished in 32.6s
+[JOB] 08 start
+[JOB] 08 finished in 0.4s
+[JOB] 09 start
+[JOB] 09 finished in 0.2s
+[JOB] 10 start
+[JOB] 10 finished in 0.0s
+
+[DONE] all tasks complete.
